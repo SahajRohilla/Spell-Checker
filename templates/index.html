@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Spell Checker Application powered by TinyLlama AI - Check and correct spelling errors in your text">
+    <title>Spell Checker Application - TinyLlama AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+    <div class="container">
+        <h1>🔍 Spell Checker Application</h1>
+        <p class="subtitle">Powered by TinyLlama via Ollama</p>
+
+        <div class="input-section">
+            <label for="inputText">Enter your text to check:</label>
+            <textarea id="inputText" placeholder="Type or paste your text here..."
+                aria-label="Input text for spell checking"></textarea>
+        </div>
+
+        <div class="button-container">
+            <button id="checkButton" onclick="checkSpelling()">Check Spelling & Grammar</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            Checking spelling and grammar...
+        </div>
+
+        <div class="output-section">
+            <div class="comparison">
+                <div>
+                    <label>Original Text:</label>
+                    <div class="output-box" id="originalText">Your original text will appear here...</div>
+                </div>
+                <div>
+                    <label>Corrected Text:</label>
+                    <div class="output-box" id="correctedText">Corrected text will appear here...</div>
+                </div>
+            </div>
+
+            <div id="misspelledWordsContainer" style="display: none;">
+                <div class="misspelled-words">
+                    <h3>Misspelled Words & Suggestions:</h3>
+                    <div id="misspelledWordsList"></div>
+                </div>
+            </div>
+
+            <div id="errorContainer" style="display: none;">
+                <div class="error-box" id="errorMessage"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function checkSpelling() {
+            const inputText = document.getElementById('inputText').value.trim();
+            const checkButton = document.getElementById('checkButton');
+            const loading = document.getElementById('loading');
+            const originalTextDiv = document.getElementById('originalText');
+            const correctedTextDiv = document.getElementById('correctedText');
+            const misspelledContainer = document.getElementById('misspelledWordsContainer');
+            const misspelledList = document.getElementById('misspelledWordsList');
+            const errorContainer = document.getElementById('errorContainer');
+            const errorMessage = document.getElementById('errorMessage');
+
+            // Reset UI
+            errorContainer.style.display = 'none';
+            misspelledContainer.style.display = 'none';
+            misspelledList.innerHTML = '';
+
+            if (!inputText) {
+                errorMessage.textContent = 'Please enter some text to check.';
+                errorContainer.style.display = 'block';
+                return;
+            }
+
+            // Show original text
+            originalTextDiv.textContent = inputText;
+
+            // Disable button and show loading
+            checkButton.disabled = true;
+            loading.classList.add('show');
+            correctedTextDiv.textContent = 'Processing...';
+
+            try {
+                const response = await fetch('/check', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: inputText })
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    errorMessage.textContent = data.error;
+                    errorContainer.style.display = 'block';
+                    correctedTextDiv.textContent = 'Error occurred. Please check the error message.';
+                } else {
+                    correctedTextDiv.textContent = data.corrected_text || 'No corrections found.';
+
+                    // Display misspelled words if any
+                    if (data.misspelled_words && data.misspelled_words.length > 0) {
+                        let html = '';
+                        data.misspelled_words.forEach(item => {
+                            html += `<div class="word-item">
+                                <strong>${item.word}</strong>
+                                <span class="suggestion">→ ${item.suggestion}</span>
+                            </div>`;
+                        });
+                        misspelledList.innerHTML = html;
+                        misspelledContainer.style.display = 'block';
+                    }
+                }
+            } catch (error) {
+                errorMessage.textContent = `Error: ${error.message}. Make sure the Flask server is running.`;
+                errorContainer.style.display = 'block';
+                correctedTextDiv.textContent = 'Error occurred. Please check the error message.';
+            } finally {
+                // Re-enable button and hide loading
+                checkButton.disabled = false;
+                loading.classList.remove('show');
+            }
+        }
+
+        // Allow Enter key to trigger check (Ctrl+Enter or Cmd+Enter)
+        document.getElementById('inputText').addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                checkSpelling();
+            }
+        });
+    </script>
+</body>
+
+</html>
